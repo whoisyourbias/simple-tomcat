@@ -14,7 +14,28 @@ JDK 21과 Maven Wrapper 3.9.9를 사용한다. 테스트는 JUnit Jupiter 5.11.4
 .\mvnw.cmd -B clean verify
 ```
 
-현재 0단계가 완료됐다. JDK 컴파일러 확인 테스트 1개와 JAR 패키징을 검증했다. Windows 에이전트 환경에서 필요한 세션 PATH 보정과 IntelliJ 설정은 [진행 문서](doc/progress.md)에 기록했다.
+현재 1단계 소켓 연결까지 완료됐다. 테스트 6개와 JAR 패키징, 같은 서버에 대한 실제 HTTP 요청 두 번을 검증했다. Windows 에이전트 환경에서 필요한 세션 PATH 보정과 IntelliJ 설정은 [진행 문서](doc/progress.md)에 기록했다.
+
+## 1단계 서버 실행
+
+빌드 후 다음 명령으로 서버를 실행한다. 기본 포트는 8080이며 마지막 인자로 다른 포트를 지정할 수 있다.
+
+```powershell
+java -cp target/classes simpletomcat.util.net.Endpoint
+```
+
+다른 터미널에서 같은 서버에 두 번 요청한다.
+
+```powershell
+curl.exe --noproxy '*' -v http://localhost:8080/hello
+curl.exe --noproxy '*' -v http://localhost:8080/hello
+```
+
+두 요청 모두 `200 OK`, `Content-Length: 22`, `Connection: close`와 본문 `Hello, simple-tomcat!`을 받는다. 본문 끝에는 줄바꿈 한 바이트가 있다. 서버 터미널에서 `Ctrl+C`로 종료한다.
+
+`Endpoint.serve()`는 `ServerSocket.accept()`로 연결을 받아 `readHeaders()`에서 헤더 끝(`\r\n\r\n`)까지 읽는다. `writeResponse()`로 고정 응답을 쓴 뒤 해당 연결을 닫고 다음 연결을 받는다. `close()`는 리스닝 소켓과 처리 중인 소켓을 닫아 대기 중에도 종료할 수 있게 한다.
+
+1단계는 본문 없는 GET과 연결당 요청 한 건을 순차 처리한다. 경로를 구분하지 않고 고정 응답을 보내며 HTTP 파싱·잘못된 요청 처리는 2단계, 작업 풀·읽기 타임아웃은 8단계에서 추가한다.
 
 ## 구현 순서
 

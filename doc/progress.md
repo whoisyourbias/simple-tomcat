@@ -1,6 +1,6 @@
 # simple-tomcat 학습 진행 기록
 
-최종 갱신일은 2026-11-03이다. 현재 단계는 0단계 빌드·테스트 환경 구성 완료, 1단계 소켓 서버 구현 시작 전이다.
+최종 갱신일은 2026-11-03이다. 현재 단계는 1단계 소켓 서버 구현 완료, 2단계 Coyote HTTP 처리 시작 전이다.
 
 ## 프로젝트 목적
 
@@ -73,7 +73,7 @@ servlet은 simple-spring과 공유하는 학습용 호출 계약이다. Coyote�
 
 Http11Protocol은 첫 단계의 블로킹 소켓 구현을 조립하는 학습용 이름이다. 실제 Tomcat의 Http11NioProtocol·NioEndpoint와 대응 관계를 설명하면서 이후 NIO를 확장할 수 있다. 직접 만든 servlet 패키지는 Jakarta Servlet 표준 전체와의 호환을 뜻하지 않는다.
 
-현재 소스는 기본 패키지 설명과 BuildEnvironmentTest만 있다. 나머지는 구현할 때 추가한다. 빌드 산출물과 Jasper의 생성 소스·class 파일은 target 아래에 둔다.
+현재 소스는 기본 패키지 설명, util/net/Endpoint와 BuildEnvironmentTest·EndpointTest가 있다. 나머지는 구현할 때 추가한다. 빌드 산출물과 Jasper의 생성 소스·class 파일은 target 아래에 둔다.
 
 ## 빌드·테스트 실행
 
@@ -109,14 +109,15 @@ macOS·Linux에서는 JDK 21 설정 후 sh ./mvnw -B clean verify로 실행한�
 | 아키텍처 독립 리뷰 및 수정 | 완료 | Mapper 조회와 왕복 경로 분리, Wrapper 선택선, 단계 위치, service() 설명, EL 예시를 수정했다. |
 | 브라우저 동작 검증 | 완료 | Edge에서 일반·JSP 전체 재생, 단계 이동, 초기화, 종류 전환과 말풍선을 확인했다. |
 | 0단계 빌드·테스트 환경 | 완료 | JDK 21·Maven Wrapper·JUnit 설정. clean verify 성공, 테스트 1개 통과 및 JAR 생성 확인. |
-| 실제 HTTP 서버 및 simple-spring 연동 | 예정 | HTTP 통신과 연동 실행 결과는 구현 후 기록한다. |
+| 1단계 소켓 서버 | 완료 | Endpoint 연결 수락·헤더 끝 읽기·고정 응답·종료. 테스트 합계 6개 통과, 같은 서버에 curl 요청 두 번 성공. |
+| 서블릿 컨테이너 및 simple-spring 연동 | 예정 | 서블릿 처리와 연동 실행 결과는 구현 후 기록한다. |
 
 ## 구현 순서와 완료 기준
 
 | 단계 | 상태 | 학습·구현할 것 | 완료 기준 |
 | --- | --- | --- | --- |
 | 0. 실행 환경 | 완료 | JDK·Maven Wrapper·JUnit 및 기본 패키지 | clean verify 성공, 테스트 1개 통과, JAR 생성. |
-| 1. 소켓 연결 | 예정 | util.net.Endpoint에서 연결 수락·고정 HTTP 응답·종료 | 같은 서버에 두 번 요청해 모두 응답받는다. |
+| 1. 소켓 연결 | 완료 | util.net.Endpoint에서 연결 수락·고정 HTTP 응답·종료 | 같은 서버에 두 번 요청해 모두 200과 고정 본문 수신. accept·헤더 읽기 중 종료와 포트 해제 확인. |
 | 2. Coyote HTTP 처리 | 예정 | Request·Response·Http11Processor·ProtocolHandler·Adapter 계약 | 테스트용 Adapter까지 HTTP 왕복. 잘못된 요청 400, 한글 본문 바이트 길이 확인. |
 | 3. 서블릿과 Wrapper | 예정 | Servlet 계약·StandardWrapper·서블릿 생명주기 | 소켓 없이 두 번 호출 후 종료. init/service/destroy 횟수 1/2/1. |
 | 4. Catalina 컨테이너 | 예정 | Engine → Host → Context → Wrapper·Pipeline·Valve | 선택 대상을 지정해 컨테이너 계층을 통한 서블릿 호출 순서 확인. |
@@ -129,11 +130,11 @@ macOS·Linux에서는 JDK 21 설정 후 sh ./mvnw -B clean verify로 실행한�
 
 ## 다음 작업
 
-1. util.net.Endpoint 구현을 시작한다.
-2. ServerSocket.accept()로 연결을 받아 HTTP 헤더의 끝까지 읽는다.
-3. Connection: close와 올바른 Content-Length를 포함한 고정 응답을 쓴다.
-4. 서버를 한 번 실행한 상태에서 curl.exe -v http://localhost:8080/hello를 두 번 실행한다.
-5. 명령과 관찰 결과를 아래 기록에 남긴다.
+1. coyote.Request·Response와 Adapter·ProtocolHandler 계약을 정의한다.
+2. Endpoint의 헤더 읽기·고정 응답을 Http11Processor의 HTTP 파싱·응답 작성으로 분리한다.
+3. Http11Protocol에서 Endpoint와 Processor를 연결한다.
+4. 테스트용 Adapter까지 HTTP 왕복을 검증한다.
+5. 잘못된 요청의 400 응답과 한글 본문의 바이트 길이를 확인한다.
 
 ## 작업 기록
 
@@ -150,6 +151,20 @@ macOS·Linux에서는 JDK 21 설정 후 sh ./mvnw -B clean verify로 실행한�
 - 관찰 결과 — BUILD SUCCESS. BuildEnvironmentTest 1개 실행, 실패 0·오류 0·건너뜀 0. target/simple-tomcat-0.1.0-SNAPSHOT.jar 생성.
 - 검증 범위 — JDK 컴파일러 사용 가능 여부와 Java 컴파일·테스트 실행·JAR 패키징이다. 서버 소켓과 서블릿 동작은 1단계 이후 검증한다.
 - 다음 작업 — util.net.Endpoint의 연결 수락·고정 응답·종료.
+
+### 2026-11-03 · 1단계 완료
+
+- 구현한 것 — origin/main을 fast-forward 방식으로 동기화했다(이미 최신, 6907b98). codex/step-1-socket-endpoint 브랜치에서 util.net.Endpoint와 실제 TCP 소켓 테스트 5개를 추가했다. 외부 라이브러리 추가 없이 블로킹 소켓으로 순차 처리한다.
+- 학습한 개념 — 생성자에서 ServerSocket을 바인딩하고 getPort()로 실제 포트를 확인한다. serve() → accept() → readHeaders() → writeResponse()가 요청 한 건의 흐름이다. CRLF 두 번까지 헤더를 읽고, UTF-8 본문의 바이트 수로 Content-Length를 정한다. 응답을 flush한 뒤 try-with-resources로 연결을 닫는다.
+- 종료 — close()가 리스닝 소켓과 현재 연결을 닫는다. accept()나 헤더 읽기로 대기하던 serve()가 반환한다. main()은 기본 포트 8080(인자로 변경 가능)과 종료 훅을 제공한다. 종료한 Endpoint를 다시 쓰려면 새 인스턴스를 만든다.
+- 테스트 우선 검증 — EndpointTest를 먼저 작성하고 Endpoint가 없어 testCompile이 실패하는 것을 확인한 뒤 구현했다. 테스트는 연속 두 연결, 나뉘어 도착한 헤더 끝, 헤더 완료 전 EOF 후 다음 요청, accept 대기 중 반복 종료·포트 재바인딩, 헤더 읽기 중 종료를 확인한다.
+- 빌드 명령 — Windows PowerShell 세션 PATH 보정 후 `.\mvnw.cmd -B clean verify`.
+- 빌드 결과 — BUILD SUCCESS. BuildEnvironmentTest 1개와 EndpointTest 5개, 합계 6개 통과(실패 0·오류 0·건너뜀 0). target/simple-tomcat-0.1.0-SNAPSHOT.jar 생성.
+- 수동 실행 명령 — `java -cp target/classes simpletomcat.util.net.Endpoint`로 한 번 시작하고 다른 터미널에서 `curl.exe --noproxy '*' --max-time 5 -v http://localhost:8080/hello`를 두 번 실행했다.
+- 관찰 결과 — 같은 프로세스의 두 요청 모두 HTTP/1.1 200 OK, Content-Type: text/plain; charset=UTF-8, Content-Length: 22, Connection: close와 본문 `Hello, simple-tomcat!`(마지막 LF 포함)을 받았다. 각 curl 종료 코드는 0이고 연결 종료를 확인했다. 확인 후 서버 프로세스를 종료했다.
+- 현재 범위 — 헤더 종료 구분만 읽고 메서드·경로를 해석하지 않아 모든 완성된 헤더에 같은 응답을 보낸다. 본문·keep-alive·동시성·읽기 타임아웃은 지원하지 않는다. 느린 연결은 다음 연결 처리를 지연시킨다. HTTP 해석은 2단계, 작업 풀과 타임아웃은 8단계에서 추가한다.
+- 남은 질문 또는 실패한 실험 — 1단계 완료 기준에 미해결 항목은 없다.
+- 다음 작업 — 2단계 Coyote HTTP 처리와 테스트용 Adapter 왕복.
 
 ### 기록 양식
 
