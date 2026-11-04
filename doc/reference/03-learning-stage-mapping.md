@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 0 실행 환경 | Maven 설정·BuildEnvironmentTest | Java 컴파일·테스트·라이브러리 패키징 | 완료 |
 | 1 소켓 연결 | util.net.Endpoint | 연결 수락·소켓 입출력 | 블로킹 순차 처리·고정 응답 완료 |
-| 2 HTTP 처리 | Coyote Request·Response·Http11Processor·ProtocolHandler·Adapter | 프로토콜 처리와 컨테이너 호출 경계 | 예정 |
+| 2 HTTP 처리 | Coyote Request·Response·Http11Processor·ProtocolHandler·Adapter | 프로토콜 처리와 컨테이너 호출 경계 | HTTP 왕복·400·500·UTF-8·종료 검증 완료 |
 | 3 서블릿과 Wrapper | Servlet 계약·StandardWrapper | 서블릿 init/service/destroy 호출 | 예정 |
 | 4 컨테이너 계층 | Engine·Host·Context·Wrapper·Pipeline·Valve | 컨테이너 계층과 요청 호출 경로 | 예정 |
 | 5 Mapper | Mapper·MappingData | 대상 서블릿 선택·매핑 결과 저장 | 예정 |
@@ -18,9 +18,9 @@
 | 9 simple-spring | 기본 매핑의 디스패처 서블릿 | 서버의 서블릿 호출에서 애플리케이션 컨트롤러 호출로 연결 | 예정 |
 | 10 Jasper | JspServlet·compiler·runtime | JSP를 서블릿으로 변환·컴파일·실행 | 예정 |
 
-## 현재 Endpoint와 이후 분리
+## Endpoint와 HTTP 처리의 분리
 
-현재 Endpoint 한 클래스에 연결 수락·헤더 끝 읽기·고정 응답이 함께 있다. 2단계에서 HTTP 해석과 응답 작성을 Processor로 옮기고 ProtocolHandler로 조립한다. Http11Protocol은 이 학습 프로젝트에서 블로킹 구현을 조립하기 위해 사용할 이름이다. 실제 Tomcat의 Http11NioProtocol·NioEndpoint처럼 NIO를 구현한 상태는 아니다.
+1단계에서는 Endpoint 한 클래스에 연결 수락·헤더 읽기·고정 응답이 함께 있었다. 2단계에서 HTTP 해석과 응답 작성을 Processor로 옮기고 Http11Protocol로 조립했다. [Tomcat 10.1.34 소스 대응과 차이 D1~D12](../02-http/03-tomcat-comparison.md)에 실제 근거와 단순화를 기록했다. Http11Protocol은 이 학습 프로젝트에서 블로킹 구현을 조립하기 위해 사용할 이름이다. 실제 Tomcat의 Http11NioProtocol·NioEndpoint처럼 NIO를 구현한 상태는 아니다.
 
 ## Mapper와 디스패처의 차이
 

@@ -2,7 +2,7 @@
 
 Tomcat의 구조를 따라 작은 서블릿 컨테이너를 Java로 직접 구현한다. HTTP 요청이 소켓에 도착해 서블릿을 실행하고 응답으로 돌아오는 과정을 코드로 설명하는 것이 목표다. 최종적으로 `simple-spring`의 내장 서버 라이브러리로 사용한다.
 
-아래 흐름과 구성은 전체 목표다. 현재는 Endpoint의 소켓 연결만 구현했다. 실제 지원 범위는 [구현 상세](../reference/02-implementation-status.md)를 기준으로 확인한다.
+아래 흐름과 구성은 전체 목표다. 현재는 Endpoint 소켓 연결과 2단계 Coyote HTTP 처리를 구현했다. 실제 지원 범위는 [구현 상세](../reference/02-implementation-status.md)를 기준으로 확인한다.
 
 ## 요청 한 건의 여정
 

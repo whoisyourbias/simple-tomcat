@@ -19,41 +19,46 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Timeout(10)
 class EndpointTest {
+    /** Handler가 다음 바이트를 읽으며 대기할 때 close가 활성 소켓을 닫아 서버 실행을 끝내는지 검증한다. */
+    @Test void closeUnblocksAnIncompleteRequest() throws Exception {
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        try (Endpoint endpoint = new Endpoint(0, socket -> {
+            socket.getInputStream().read(); entered.countDown(); socket.getInputStream().read();
+        }); ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            Future<?> serving = executor.submit(() -> { endpoint.serve(); return null; });
+            try (Socket socket = connect(endpoint.getPort())) {
+                socket.getOutputStream().write(1); socket.getOutputStream().flush();
+                org.junit.jupiter.api.Assertions.assertTrue(entered.await(2, TimeUnit.SECONDS));
+                endpoint.close(); serving.get(2, TimeUnit.SECONDS);
+            }
+        }
+    }
+    /** 첫 연결의 Handler에서 IOException이 나면 해당 연결을 닫고 다음 연결은 정상 처리하는지 검증한다. */
+    @Test void continuesAfterHandlerIOException() throws Exception {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        try (Endpoint endpoint = new Endpoint(0, socket -> {
+            if (calls.incrementAndGet() == 1) throw new IOException("test failure");
+            socket.getOutputStream().write("handled\n".getBytes(StandardCharsets.US_ASCII));
+        }); ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            Future<?> serving = executor.submit(() -> { endpoint.serve(); return null; });
+            try {
+                try (Socket first = connect(endpoint.getPort())) { assertEquals(-1, first.getInputStream().read()); }
+                try (Socket second = connect(endpoint.getPort())) { assertResponse(readResponse(second)); }
+            } finally { endpoint.close(); serving.get(2, TimeUnit.SECONDS); }
+        }
+    }
     private static final String REQUEST = "GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
+    /** 같은 Endpoint가 두 연결을 차례로 Handler에 위임하고, 각 응답 후 연결을 닫는지 검증한다. */
     @Test
-    void respondsToTwoConnectionsOnTheSameServer() throws Exception {
+    void invokesHandlerForTwoConnectionsOnTheSameServer() throws Exception {
         try (RunningEndpoint server = new RunningEndpoint()) {
             assertResponse(request(server.port()));
             assertResponse(request(server.port()));
         }
     }
 
-    @Test
-    void waitsForTheEndOfHeadersAcrossSocketWrites() throws Exception {
-        try (RunningEndpoint server = new RunningEndpoint(); Socket socket = connect(server.port())) {
-            write(socket, "GET /hello HTTP/1.1\r\nHost: localhost\r\n\r");
-            socket.setSoTimeout(200);
-            assertThrows(SocketTimeoutException.class, () -> socket.getInputStream().read());
-
-            write(socket, "\n");
-            socket.setSoTimeout(2000);
-            assertResponse(readResponse(socket));
-        }
-    }
-
-    @Test
-    void closesIncompleteRequestsWithoutStoppingTheServer() throws Exception {
-        try (RunningEndpoint server = new RunningEndpoint()) {
-            try (Socket socket = connect(server.port())) {
-                write(socket, "GET /hello HTTP/1.1\r\nHost: localhost\r\n");
-                socket.shutdownOutput();
-                assertEquals("", readResponse(socket));
-            }
-            assertResponse(request(server.port()));
-        }
-    }
-
+    /** 연결 수락 대기 중 반복해서 종료해도 서버가 끝나고, 사용하던 포트를 다시 바인딩할 수 있는지 검증한다. */
     @Test
     void closeUnblocksAcceptAndReleasesThePort() throws Exception {
         try (RunningEndpoint server = new RunningEndpoint()) {
@@ -63,16 +68,6 @@ class EndpointTest {
             try (ServerSocket rebound = new ServerSocket(port)) {
                 assertEquals(port, rebound.getLocalPort());
             }
-        }
-    }
-
-    @Test
-    void closeUnblocksAnIncompleteRequest() throws Exception {
-        try (RunningEndpoint server = new RunningEndpoint(); Socket socket = connect(server.port())) {
-            write(socket, "GET /hello HTTP/1.1\r\n");
-            socket.setSoTimeout(200);
-            assertThrows(SocketTimeoutException.class, () -> socket.getInputStream().read());
-            server.stop();
         }
     }
 
@@ -100,18 +95,10 @@ class EndpointTest {
         return new String(socket.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
     }
 
-    private static void assertResponse(String response) {
-        String[] parts = response.split("\r\n\r\n", 2);
-        assertEquals(2, parts.length, "HTTP headers and body must be separated by CRLF CRLF");
-        assertEquals("HTTP/1.1 200 OK\r\n"
-                + "Content-Type: text/plain; charset=UTF-8\r\n"
-                + "Content-Length: 22\r\n"
-                + "Connection: close", parts[0]);
-        assertEquals("Hello, simple-tomcat!\n", parts[1]);
-    }
+    private static void assertResponse(String response) { assertEquals("handled\n", response); }
 
     private static final class RunningEndpoint implements AutoCloseable {
-        private final Endpoint endpoint = new Endpoint(0);
+        private final Endpoint endpoint = new Endpoint(0, socket -> { socket.getOutputStream().write("handled\n".getBytes(StandardCharsets.US_ASCII)); });
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
         private final Future<?> serving;
 

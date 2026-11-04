@@ -1,8 +1,7 @@
 # 1단계 소켓 연결 구현 계획
 
-> 2026-11-03 작성·실행한 계획이다. 2026-11-04 문서 재구성 이후 현재 상태는 [진행 상황](../../../doc/00-overview/01-progress.md), 당시 실행 증거는 [초기 구현 기록](../../../doc/history/01-initial-implementation.md), 학습 설명은 [1단계 문서](../../../doc/01-socket/01-endpoint-and-request-flow.md)를 참고한다. 아래 파일 경로와 작업 목록은 당시 계획을 보존한다.
+> 2026-11-03 작성·실행한 계획이다. 2026-11-04 문서 재구성 이후 현재 상태는 [진행 상황](../00-overview/01-progress.md), 당시 실행 증거는 [초기 구현 기록](../history/01-initial-implementation.md), 학습 설명은 [1단계 문서](../01-socket/01-endpoint-and-request-flow.md)를 참고한다. 아래 파일 경로와 작업 목록은 당시 계획을 보존한다.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 같은 Endpoint에 두 번 요청하여 고정 HTTP 응답을 받고 서버를 종료한다.
 

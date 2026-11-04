@@ -1,3 +1,5 @@
+> 이 문서는 1단계 당시 구조·실행 기록을 보존한다. 2단계에서 HTTP 처리는 Processor로, main은 Http11Protocol로 이동했다. 현재 실행 방법은 [2단계 문서](../02-http/01-coyote-and-request-flow.md)를 따른다.
+
 # 01-02. 소켓 테스트, 실행 증거와 다음 작업
 
 ## 자동 테스트

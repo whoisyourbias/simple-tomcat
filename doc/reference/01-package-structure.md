@@ -7,13 +7,18 @@
 ```text
 src/main/java/simpletomcat/
 ├─ package-info.java
-└─ util/net/Endpoint.java
+├─ util/net/Endpoint.java
+└─ coyote/Request.java · Response.java · Adapter.java · ProtocolHandler.java
+   └─ http11/Http11Processor.java · Http11Protocol.java
 src/test/java/simpletomcat/
 ├─ BuildEnvironmentTest.java
-└─ util/net/EndpointTest.java
+├─ util/net/EndpointTest.java
+├─ coyote/RequestTest.java · ResponseTest.java
+│  └─ http11/Http11ProcessorTest.java
+└─ integration/Http11ProtocolTest.java
 ```
 
-[Endpoint](../../src/main/java/simpletomcat/util/net/Endpoint.java)는 현재 연결 수락·헤더 종료 읽기·고정 응답·종료를 담당한다. [EndpointTest](../../src/test/java/simpletomcat/util/net/EndpointTest.java)는 main과 같은 패키지에 둔다.
+[Endpoint](../../src/main/java/simpletomcat/util/net/Endpoint.java)는 현재 연결 수락·Handler 위임·종료를 담당한다. HTTP 해석과 응답 작성은 Coyote Http11Processor가 담당한다. [EndpointTest](../../src/test/java/simpletomcat/util/net/EndpointTest.java)는 main과 같은 패키지에 둔다.
 
 ## 전체 목표 배치
 
@@ -47,7 +52,7 @@ src/main/java/simpletomcat/
 ## 배치 원칙
 
 - Catalina 루트에는 계약, `core`에는 StandardEngine 등 표준 구현과 기본 Valve·필터 체인을 둔다. 공통 Valve는 `valves`에 둔다.
-- 소켓 처리는 `util/net`, 내장 서버 진입점은 `catalina/startup/SimpleTomcat`으로 한다. 현재의 Endpoint.main은 1단계 수동 실행용이다.
+- 소켓 처리는 `util/net`, 내장 서버 진입점은 `catalina/startup/SimpleTomcat`으로 한다. Endpoint.main은 2단계에서 제거했고 현재 수동 실행 진입점은 coyote.http11.Http11Protocol.main이다.
 - `servlet`은 simple-spring과 공유할 학습용 호출 계약이다. simple-spring의 디스패처와 컨트롤러 구현은 별도 저장소에 둔다.
 - Coyote Request·Response는 프로토콜 데이터이며 Catalina의 connector Request·Response가 서블릿 계약을 구현해 연결한다. Coyote Adapter 계약은 Catalina CoyoteAdapter가 구현한다.
 - Http11Protocol은 블로킹 소켓을 조립하는 학습용 이름이다. 이후 실제 Tomcat의 Http11NioProtocol·NioEndpoint와 대응하며 NIO로 확장할 수 있다.
